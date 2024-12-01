@@ -3,9 +3,9 @@ pipeline {
     
     environment {
         SONAR_PROJECT_KEY = 'flask-app'
-        GITHUB_REPO = 'https://github.com/your-username/your-repo.git'
+        GITHUB_REPO = 'https://github.com/abdorhl/BoutApp.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
-        ANSIBLE_VAULT_CREDENTIALS = credentials('ansible-vault-password')
+        
     }
     
     stages {
@@ -22,7 +22,7 @@ pipeline {
         stage('Setup Infrastructure') {
             steps {
                 // Write Ansible vault password to a temporary file
-                writeFile file: '.vault_pass', text: "${ANSIBLE_VAULT_CREDENTIALS}"
+                writeFile file: '.vault_pass', text: "./ansible/playbook.yml"
                 
                 // Run Ansible playbook
                 sh '''
