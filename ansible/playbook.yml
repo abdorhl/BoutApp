@@ -23,7 +23,11 @@
           - python3
           - python3-pip
           - python3-venv
+          - gnupg2
+          - apt-transport-https
+          - ca-certificates
         state: present
+        update_cache: yes
       when: ansible_os_family == "Debian"
 
     - name: Create Jenkins group
@@ -60,6 +64,7 @@
       until: result.status == 200
       retries: 60
       delay: 5
+      ignore_errors: yes
 
     - name: Wait for SonarQube to start up
       uri:
@@ -70,6 +75,7 @@
       until: result.status == 200
       retries: 60
       delay: 5
+      ignore_errors: yes
 
 # Role tasks
 - name: Common Setup

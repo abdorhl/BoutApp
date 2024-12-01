@@ -1,25 +1,38 @@
 ---
-- name: Add Jenkins repository key
-  apt_key:
-    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
-    state: present
+- name: Download Jenkins repository key
+  get_url:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    dest: /usr/share/keyrings/jenkins-keyring.asc
+    mode: '0644'
 
 - name: Add Jenkins repository
   apt_repository:
-    repo: deb https://pkg.jenkins.io/debian-stable binary/
+    repo: 'deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/'
     state: present
+    filename: jenkins
+    update_cache: yes
 
 - name: Install Jenkins
   apt:
     name: jenkins
     state: present
+    update_cache: yes
 
-- name: Create Jenkins plugins directory
+- name: Ensure Jenkins service directory exists
+  file:
+    path: /var/lib/jenkins
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+
+- name: Ensure Jenkins plugins directory exists
   file:
     path: /var/lib/jenkins/plugins
     state: directory
     owner: jenkins
     group: jenkins
+    mode: '0755'
 
 - name: Download Jenkins plugins
   get_url:
@@ -27,6 +40,7 @@
     dest: "/var/lib/jenkins/plugins/{{ item }}.hpi"
     owner: jenkins
     group: jenkins
+    mode: '0644'
   with_items:
     - workflow-aggregator
     - git
@@ -36,9 +50,10 @@
     - junit
     - cobertura
     - warnings-ng
+  notify: restart jenkins
 
 - name: Start Jenkins service
-  service:
+  systemd:
     name: jenkins
     state: started
     enabled: yes

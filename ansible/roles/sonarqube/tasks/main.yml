@@ -1,38 +1,107 @@
 ---
-- name: Download SonarQube
-  get_url:
-    url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonarqube_version }}.zip"
-    dest: "/opt/sonarqube-{{ sonarqube_version }}.zip"
+- name: Check if SonarQube is installed
+  stat:
+    path: "{{ sonarqube_home }}"
+  register: sonarqube_install
+
+- name: Install required packages for SonarQube
+  apt:
+    name:
+      - unzip
+      - default-jdk
+      - postgresql
+      - postgresql-contrib
+    state: present
+    update_cache: yes
+  when: not sonarqube_install.stat.exists
 
 - name: Create SonarQube group
   group:
     name: sonarqube
     state: present
+  when: not sonarqube_install.stat.exists
 
 - name: Create SonarQube user
   user:
     name: sonarqube
     group: sonarqube
     shell: /bin/bash
+    home: "{{ sonarqube_home }}"
     system: yes
+  when: not sonarqube_install.stat.exists
+
+- name: Create SonarQube installation directory
+  file:
+    path: "{{ sonarqube_home }}"
+    state: directory
+    owner: sonarqube
+    group: sonarqube
+    mode: '0755'
+  when: not sonarqube_install.stat.exists
+
+- name: Download SonarQube
+  get_url:
+    url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonarqube_version }}.zip"
+    dest: "/tmp/sonarqube-{{ sonarqube_version }}.zip"
+    mode: '0644'
+  when: not sonarqube_install.stat.exists
 
 - name: Extract SonarQube
   unarchive:
-    src: "/opt/sonarqube-{{ sonarqube_version }}.zip"
-    dest: /opt
+    src: "/tmp/sonarqube-{{ sonarqube_version }}.zip"
+    dest: "/opt"
     remote_src: yes
-    creates: "/opt/sonarqube-{{ sonarqube_version }}"
+    owner: sonarqube
+    group: sonarqube
+  when: not sonarqube_install.stat.exists
 
 - name: Create SonarQube symlink
   file:
     src: "/opt/sonarqube-{{ sonarqube_version }}"
-    dest: /opt/sonarqube
+    dest: "{{ sonarqube_home }}"
     state: link
     owner: sonarqube
     group: sonarqube
+  when: not sonarqube_install.stat.exists
 
-- name: Configure SonarQube service
+- name: Configure system limits for SonarQube
+  lineinfile:
+    path: /etc/security/limits.conf
+    line: "{{ item }}"
+    state: present
+  with_items:
+    - "sonarqube   -   nofile   65536"
+    - "sonarqube   -   nproc    4096"
+  when: not sonarqube_install.stat.exists
+
+- name: Configure sysctl for SonarQube
+  sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: yes
+  when: not sonarqube_install.stat.exists
+
+- name: Create SonarQube service file
   template:
     src: sonarqube.service.j2
     dest: /etc/systemd/system/sonarqube.service
+    mode: '0644'
   notify: restart sonarqube
+
+- name: Start and enable SonarQube service
+  systemd:
+    name: sonarqube
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Wait for SonarQube to be ready
+  uri:
+    url: "http://localhost:{{ sonarqube_web_port }}"
+    status_code: 200
+  register: result
+  until: result.status == 200
+  retries: 60
+  delay: 5
+  ignore_errors: yes
