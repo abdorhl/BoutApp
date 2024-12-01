@@ -1,0 +1,26 @@
+---
+# Common variables
+timezone: UTC
+environment: production
+
+# Jenkins variables
+jenkins_hostname: localhost
+jenkins_http_port: 8080
+jenkins_admin_username: admin
+jenkins_admin_password: "{{ vault_jenkins_admin_password }}"
+jenkins_plugins:
+  - git
+  - github
+  - workflow-aggregator
+  - sonar
+  - pipeline-stage-view
+  - junit
+  - cobertura
+  - warnings-ng
+
+# SonarQube variables
+sonarqube_version: "9.9.1"
+sonarqube_db_name: sonarqube
+sonarqube_db_user: sonarqube
+sonarqube_db_password: "{{ vault_sonarqube_db_password }}"
+sonarqube_web_port: 9000

@@ -1,0 +1,131 @@
+---
+# Main playbook
+- name: Setup CI/CD Environment
+  hosts: jenkins_server
+  become: yes
+  vars_files:
+    - vars/main.yml
+  roles:
+    - common
+    - jenkins
+    - sonarqube
+
+# Role tasks
+- name: Common Setup
+  hosts: jenkins_server
+  become: yes
+  tasks:
+    - name: Install common packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - git
+        - curl
+        - wget
+        - unzip
+        - python3-pip
+        - openjdk-11-jdk
+
+    - name: Set timezone
+      timezone:
+        name: UTC
+
+- name: Setup Jenkins
+  hosts: jenkins_server
+  become: yes
+  tasks:
+    - name: Add Jenkins repository key
+      apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+        state: present
+
+    - name: Add Jenkins repository
+      apt_repository:
+        repo: deb https://pkg.jenkins.io/debian-stable binary/
+        state: present
+
+    - name: Install Jenkins
+      apt:
+        name: jenkins
+        state: present
+
+    - name: Create Jenkins plugins directory
+      file:
+        path: /var/lib/jenkins/plugins
+        state: directory
+        owner: jenkins
+        group: jenkins
+
+    - name: Download Jenkins plugins
+      get_url:
+        url: "https://updates.jenkins.io/download/plugins/{{ item }}/latest/{{ item }}.hpi"
+        dest: "/var/lib/jenkins/plugins/{{ item }}.hpi"
+        owner: jenkins
+        group: jenkins
+      with_items:
+        - workflow-aggregator
+        - git
+        - github
+        - sonar
+        - pipeline-stage-view
+        - junit
+        - cobertura
+        - warnings-ng
+
+    - name: Start Jenkins service
+      service:
+        name: jenkins
+        state: started
+        enabled: yes
+
+- name: Setup SonarQube
+  hosts: jenkins_server
+  become: yes
+  vars:
+    sonarqube_version: "9.9.1"
+  tasks:
+    - name: Download SonarQube
+      get_url:
+        url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonarqube_version }}.zip"
+        dest: "/opt/sonarqube-{{ sonarqube_version }}.zip"
+
+    - name: Create SonarQube group
+      group:
+        name: sonarqube
+        state: present
+
+    - name: Create SonarQube user
+      user:
+        name: sonarqube
+        group: sonarqube
+        shell: /bin/bash
+        system: yes
+
+    - name: Extract SonarQube
+      unarchive:
+        src: "/opt/sonarqube-{{ sonarqube_version }}.zip"
+        dest: /opt
+        remote_src: yes
+        creates: "/opt/sonarqube-{{ sonarqube_version }}"
+
+    - name: Create SonarQube symlink
+      file:
+        src: "/opt/sonarqube-{{ sonarqube_version }}"
+        dest: /opt/sonarqube
+        state: link
+        owner: sonarqube
+        group: sonarqube
+
+    - name: Configure SonarQube service
+      template:
+        src: templates/sonarqube.service.j2
+        dest: /etc/systemd/system/sonarqube.service
+      notify: restart sonarqube
+
+  handlers:
+    - name: restart sonarqube
+      systemd:
+        name: sonarqube
+        state: restarted
+        daemon_reload: yes
