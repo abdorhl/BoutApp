@@ -5,7 +5,6 @@ pipeline {
         SONAR_PROJECT_KEY = 'flask-app'
         GITHUB_REPO = 'https://github.com/abdorhl/BoutApp.git'
         GITHUB_CREDENTIALS = credentials('github-credentials')
-        
     }
     
     stages {
@@ -19,25 +18,19 @@ pipeline {
                     url: "${GITHUB_REPO}"
             }
         }
+        
         stage('Setup Infrastructure') {
             steps {
-                // Write Ansible vault password to a temporary file
-                writeFile file: '.vault_pass', text: "./ansible/playbook.yml"
-                
-                // Run Ansible playbook
                 sh '''
                     # Install Ansible if not present
                     which ansible-playbook || (apt-get update && apt-get install -y ansible)
                     
                     # Run the playbook
-                    ansible-playbook -i ansible/inventory.ini ansible/playbook.yml \
-                        --vault-password-file .vault_pass
+                    ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
                 '''
-                
-                // Clean up vault password file
-                sh 'rm -f .vault_pass'
             }
         }
+        
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -48,6 +41,7 @@ pipeline {
                 '''
             }
         }
+        
         stage('Security Checks') {
             parallel {
                 stage('Dependency Check') {
@@ -132,21 +126,16 @@ pipeline {
             }
         }
     }
+    
     post {
         always {
             cleanWs()
         }
-        success {
-            slackSend(
-                color: 'good',
-                message: "Build Successful: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
-            )
-        }
         failure {
-            slackSend(
-                color: 'danger',
-                message: "Build Failed: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
-            )
+            echo 'Pipeline failed!'
+        }
+        success {
+            echo 'Pipeline succeeded!'
         }
     }
 }

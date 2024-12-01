@@ -1,0 +1,44 @@
+---
+- name: Add Jenkins repository key
+  apt_key:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+    state: present
+
+- name: Add Jenkins repository
+  apt_repository:
+    repo: deb https://pkg.jenkins.io/debian-stable binary/
+    state: present
+
+- name: Install Jenkins
+  apt:
+    name: jenkins
+    state: present
+
+- name: Create Jenkins plugins directory
+  file:
+    path: /var/lib/jenkins/plugins
+    state: directory
+    owner: jenkins
+    group: jenkins
+
+- name: Download Jenkins plugins
+  get_url:
+    url: "https://updates.jenkins.io/download/plugins/{{ item }}/latest/{{ item }}.hpi"
+    dest: "/var/lib/jenkins/plugins/{{ item }}.hpi"
+    owner: jenkins
+    group: jenkins
+  with_items:
+    - workflow-aggregator
+    - git
+    - github
+    - sonar
+    - pipeline-stage-view
+    - junit
+    - cobertura
+    - warnings-ng
+
+- name: Start Jenkins service
+  service:
+    name: jenkins
+    state: started
+    enabled: yes

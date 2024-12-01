@@ -1,7 +1,7 @@
 ---
 # Main playbook
-- name: Setup CI/CD Environment
-  hosts: jenkins_server
+- name: Setup CI/CD Infrastructure
+  hosts: all
   become: yes
   vars_files:
     - vars/main.yml
