@@ -18,21 +18,43 @@
     state: present
     update_cache: yes
 
-- name: Ensure Jenkins service directory exists
+- name: Create Jenkins directories
   file:
-    path: /var/lib/jenkins
+    path: "{{ item }}"
     state: directory
     owner: jenkins
     group: jenkins
     mode: '0755'
+  with_items:
+    - /var/lib/jenkins
+    - /var/lib/jenkins/plugins
+    - /var/cache/jenkins
+    - /var/log/jenkins
 
-- name: Ensure Jenkins plugins directory exists
-  file:
-    path: /var/lib/jenkins/plugins
-    state: directory
-    owner: jenkins
-    group: jenkins
-    mode: '0755'
+- name: Configure Jenkins defaults
+  template:
+    src: jenkins.default.j2
+    dest: /etc/default/jenkins
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart jenkins
+
+- name: Configure Jenkins systemd service
+  template:
+    src: jenkins.service.j2
+    dest: /etc/systemd/system/jenkins.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart jenkins
+
+- name: Ensure Jenkins service is enabled and started
+  systemd:
+    name: jenkins
+    state: started
+    enabled: yes
+    daemon_reload: yes
 
 - name: Download Jenkins plugins
   get_url:
@@ -41,15 +63,7 @@
     owner: jenkins
     group: jenkins
     mode: '0644'
-  with_items:
-    - workflow-aggregator
-    - git
-    - github
-    - sonar
-    - pipeline-stage-view
-    - junit
-    - cobertura
-    - warnings-ng
+  with_items: "{{ jenkins_plugins }}"
   notify: restart jenkins
 
 - name: Start Jenkins service
@@ -57,3 +71,22 @@
     name: jenkins
     state: started
     enabled: yes
+  register: jenkins_start
+  ignore_errors: yes
+
+- name: Debug Jenkins service status
+  command: systemctl status jenkins
+  register: jenkins_status
+  ignore_errors: yes
+  when: jenkins_start is failed
+
+- name: Show Jenkins logs
+  command: journalctl -u jenkins -n 50
+  register: jenkins_logs
+  ignore_errors: yes
+  when: jenkins_start is failed
+
+- name: Debug output
+  debug:
+    var: jenkins_logs.stdout_lines
+  when: jenkins_start is failed
