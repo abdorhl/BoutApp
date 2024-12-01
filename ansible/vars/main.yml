@@ -7,7 +7,8 @@ environment: production
 jenkins_hostname: localhost
 jenkins_http_port: 8080
 jenkins_admin_username: admin
-jenkins_admin_password: "{{ vault_jenkins_admin_password }}"
+jenkins_admin_password: admin  # Change this in production!
+jenkins_home: /var/lib/jenkins
 jenkins_plugins:
   - git
   - github
@@ -17,10 +18,26 @@ jenkins_plugins:
   - junit
   - cobertura
   - warnings-ng
+  - credentials
+  - credentials-binding
+  - ssh
 
 # SonarQube variables
-sonarqube_version: "9.9.1"
+sonarqube_version: "9.9.1.69595"
+sonarqube_home: /opt/sonarqube
+sonarqube_database: embedded
 sonarqube_db_name: sonarqube
 sonarqube_db_user: sonarqube
 sonarqube_db_password: "{{ vault_sonarqube_db_password }}"
 sonarqube_web_port: 9000
+sonarqube_admin_username: admin
+sonarqube_admin_password: admin  # Change this in production!
+
+# Python variables
+python_version: "3.9"
+pip_packages:
+  - pytest
+  - pytest-cov
+  - safety
+  - bandit
+  - gunicorn

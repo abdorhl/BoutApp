@@ -1,14 +1,75 @@
 ---
 # Main playbook
 - name: Setup CI/CD Infrastructure
-  hosts: all
+  hosts: jenkins
   become: yes
   vars_files:
     - vars/main.yml
+  
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install required packages
+      apt:
+        name:
+          - openjdk-11-jdk
+          - git
+          - curl
+          - unzip
+          - python3
+          - python3-pip
+          - python3-venv
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Create Jenkins group
+      group:
+        name: jenkins
+        state: present
+
+    - name: Create Jenkins user
+      user:
+        name: jenkins
+        group: jenkins
+        shell: /bin/bash
+        home: "{{ jenkins_home }}"
+        system: yes
+
+    - name: Set JAVA_HOME
+      lineinfile:
+        path: /etc/environment
+        line: 'JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"'
+        state: present
+
   roles:
     - common
     - jenkins
     - sonarqube
+
+  post_tasks:
+    - name: Wait for Jenkins to start up
+      uri:
+        url: "http://{{ jenkins_hostname }}:{{ jenkins_http_port }}/login"
+        status_code: 200
+        timeout: 5
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 5
+
+    - name: Wait for SonarQube to start up
+      uri:
+        url: "http://localhost:{{ sonarqube_web_port }}"
+        status_code: 200
+        timeout: 5
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 5
 
 # Role tasks
 - name: Common Setup

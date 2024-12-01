@@ -23,10 +23,10 @@ pipeline {
             steps {
                 sh '''
                     # Install Ansible if not present
-                    which ansible-playbook || (apt-get update && apt-get install -y ansible)
+                    which ansible-playbook || (sudo apt-get update && sudo apt-get install -y ansible)
                     
-                    # Run the playbook
-                    ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+                    # Run the playbook with verbose output
+                    ansible-playbook -i ansible/inventory.ini ansible/playbook.yml -vv
                 '''
             }
         }
