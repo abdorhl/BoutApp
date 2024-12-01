@@ -23,10 +23,10 @@ pipeline {
             steps {
                 sh '''
                     # Install Ansible if not present
-                    which ansible-playbook || (sudo apt-get update && sudo apt-get install -y ansible)
+                    echo "kali" | sudo -S apt-get update && echo "kali" | sudo -S apt-get install -y ansible
                     
                     # Run the playbook with verbose output
-                    ansible-playbook -i ansible/inventory.ini ansible/playbook.yml -vv
+                    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory.ini ansible/playbook.yml -vv
                 '''
             }
         }
